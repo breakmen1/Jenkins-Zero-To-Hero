@@ -1,7 +1,7 @@
 pipeline {
   agent {
     docker {
-      image 'akshaykumar0007/ultimate-cicd:v1' // Your custom Java 17 image
+      image 'akshaykumar0007/ultimate-cicd:v1'
       args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
     }
   }
@@ -10,7 +10,7 @@ pipeline {
     SONAR_URL = "http://3.80.188.149:9000"
     GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
     GIT_USER_NAME = "breakmen1"
-    DOCKER_IMAGE = "akshaykumar0007/ultimate-cicd:${BUILD_NUMBER}"  // Updated Docker image name
+    DOCKER_IMAGE = "akshaykumar0007/ultimate-cicd:${BUILD_NUMBER}"
   }
 
   stages {
@@ -66,16 +66,20 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: 'git-cred', variable: 'GITHUB_TOKEN')]) {
           sh """
-            # Add safe directory config inside the container to avoid git dubious ownership error
             git config --global --add safe.directory /var/lib/jenkins/workspace/ultimate-cicd
-
-            git checkout main
             git config user.email "akshaykumarpatil708@gmail.com"
             git config user.name "${GIT_USER_NAME}"
 
-            sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+            git checkout main
+
+            # Update image tag dynamically in the deployment.yml
+            sed -i "s|image: .*|image: ${DOCKER_IMAGE}|" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+
             git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-            git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+
+            # Commit only if there are changes
+            git diff --cached --quiet || git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+
             git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
           """
         }
