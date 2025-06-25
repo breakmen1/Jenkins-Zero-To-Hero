@@ -2,7 +2,6 @@ pipeline {
   agent {
     docker {
       image 'abhishekf5/maven-abhishek-docker-agent:v1'
-      label 'docker-enabled' // optional if you have node labels
       args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
     }
   }
