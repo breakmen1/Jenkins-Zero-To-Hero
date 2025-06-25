@@ -15,6 +15,12 @@ pipeline {
 
   stages {
 
+    stage('Clean Workspace') {
+      steps {
+        deleteDir() // Deletes all files in the workspace to avoid permission or cache issues
+      }
+    }
+
     stage('Checkout') {
       steps {
         checkout([$class: 'GitSCM',
@@ -83,5 +89,5 @@ pipeline {
     }
   }
 }
- 
+
 
