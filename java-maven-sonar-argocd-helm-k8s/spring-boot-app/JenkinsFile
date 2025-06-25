@@ -1,7 +1,7 @@
 pipeline {
   agent {
     docker {
-      image 'abhishekf5/maven-abhishek-docker-agent:v1'
+      image 'akshaykumar0007/ultimate-cicd:v1' // Updated to your custom Java 17 image
       args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
     }
   }
@@ -10,13 +10,17 @@ pipeline {
     SONAR_URL = "http://3.80.188.149:9000"
     GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
     GIT_USER_NAME = "breakmen1"
-    DOCKER_IMAGE = "abhishekf5/ultimate-cicd:${BUILD_NUMBER}"
+    DOCKER_IMAGE = "akshaykumar0007/ultimate-cicd:${BUILD_NUMBER}"  // Updated Docker image name
   }
 
   stages {
     stage('Checkout') {
       steps {
-        sh 'echo passed'
+        // It's a good idea to explicitly checkout the repo to get full git history and branches
+        checkout([$class: 'GitSCM',
+                  branches: [[name: 'main']],
+                  userRemoteConfigs: [[url: 'https://github.com/breakmen1/Jenkins-Zero-To-Hero']]])
+        sh 'echo "Checkout successful"'
       }
     }
 
@@ -32,10 +36,10 @@ pipeline {
     stage('Static Code Analysis') {
       steps {
         withCredentials([string(credentialsId: 'sonar1', variable: 'SONAR_AUTH_TOKEN')]) {
-          sh '''
+          sh """
             cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-            mvn sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=$SONAR_URL
-          '''
+            mvn sonar:sonar -Dsonar.login=${SONAR_AUTH_TOKEN} -Dsonar.host.url=${SONAR_URL}
+          """
         }
       }
     }
@@ -43,12 +47,18 @@ pipeline {
     stage('Build and Push Docker Image') {
       steps {
         withCredentials([usernamePassword(credentialsId: 'docker-cred', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-          sh '''
+          sh """
+            echo Logging into Docker Hub...
+            echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin
+
             cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-            docker build -t $DOCKER_IMAGE .
-            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-            docker push $DOCKER_IMAGE
-          '''
+
+            echo Building Docker image ${DOCKER_IMAGE} ...
+            docker build -t ${DOCKER_IMAGE} .
+
+            echo Pushing Docker image ${DOCKER_IMAGE} ...
+            docker push ${DOCKER_IMAGE}
+          """
         }
       }
     }
@@ -56,14 +66,16 @@ pipeline {
     stage('Update Deployment File') {
       steps {
         withCredentials([string(credentialsId: 'git-cred', variable: 'GITHUB_TOKEN')]) {
-          sh '''
+          sh """
+            git checkout main
             git config user.email "akshaykumarpatil708@gmail.com"
-            git config user.name "breakmen1"
+            git config user.name "${GIT_USER_NAME}"
+
             sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
             git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
             git commit -m "Update deployment image to version ${BUILD_NUMBER}"
             git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
-          '''
+          """
         }
       }
     }
