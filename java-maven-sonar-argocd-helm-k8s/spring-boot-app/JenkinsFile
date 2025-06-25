@@ -1,7 +1,7 @@
 pipeline {
   agent {
     docker {
-      image 'akshaykumar0007/ultimate-cicd:v1' // Updated to your custom Java 17 image
+      image 'akshaykumar0007/ultimate-cicd:v1' // Your custom Java 17 image
       args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
     }
   }
@@ -16,7 +16,6 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
-        // It's a good idea to explicitly checkout the repo to get full git history and branches
         checkout([$class: 'GitSCM',
                   branches: [[name: 'main']],
                   userRemoteConfigs: [[url: 'https://github.com/breakmen1/Jenkins-Zero-To-Hero']]])
@@ -67,6 +66,9 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: 'git-cred', variable: 'GITHUB_TOKEN')]) {
           sh """
+            # Add safe directory config inside the container to avoid git dubious ownership error
+            git config --global --add safe.directory /var/lib/jenkins/workspace/ultimate-cicd
+
             git checkout main
             git config user.email "akshaykumarpatil708@gmail.com"
             git config user.name "${GIT_USER_NAME}"
@@ -81,3 +83,4 @@ pipeline {
     }
   }
 }
+
